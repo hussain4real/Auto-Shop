@@ -2,102 +2,179 @@ package main
 
 import "fmt"
 
-// The Product class should have attributes of a product i.e (the product, quantity of the product in stock, price of the product)
+// The Car class represents a specific car in the store.
+type Car struct {
+	Make  string
+	Model string
+	Year  int
+	Product
+}
+
+// The Product class represents a product in the store, including cars.
+// It has attributes of a product, such as its name, quantity in stock, and price.
 type Product struct {
 	Name     string
 	Quantity int
 	Price    float64
 }
 
-// Car A car is a product of the store, but there can be other products so the attribute of the car can be promoted to the Product.
-type Car struct {
-	Product
-}
-
-// ProductInterface The Product class should have methods to display a product, and a method to display the status of a product if it is still in stock or not.
+// The ProductInterface interface defines the methods that a Product must implement.
 type ProductInterface interface {
 	DisplayProduct()
 	DisplayStatus()
+	UpdateQuantity(int) error
 }
 
-// The Store class should have
-
-// DisplayProduct function to display the product
+// DisplayProduct is a method of the Product class that displays the product's information.
 func (p Product) DisplayProduct() {
-	fmt.Printf("Product: %s", p.Name)
-
+	fmt.Printf("Product: %s\n", p.Name)
+	fmt.Printf("Quantity: %d\n", p.Quantity)
+	fmt.Printf("Price: $%.2f\n", p.Price)
 }
 
-// DisplayStatus function to display the status of the product
+// DisplayStatus is a method of the Product class that displays the product's status (in stock or out of stock).
 func (p Product) DisplayStatus() {
 	if p.Quantity > 0 {
-		fmt.Println("In stock")
+		fmt.Println("Status: In stock")
 	} else {
-		fmt.Println("Out of stock")
+		fmt.Println("Status: Out of stock")
 	}
 }
 
-// The Store class should have attributes like Number of products in the store that are still up for sale,Adding an Item to the store,Listing all product items in the store,Sell an item,Show a list of sold items and the total price
-type Store struct {
-	Product     []ProductInterface
-	soldProduct []ProductInterface
+// UpdateQuantity is a method of the Product class that updates the product's quantity in stock.
+func (p Product) UpdateQuantity(quantity int) error {
+	if p.Quantity+quantity < 0 {
+		return fmt.Errorf("cannot set quantity to a negative value")
+	}
+	p.Quantity += quantity
+	return nil
 }
 
-// StoreInterface The Store class should have methods to add a product, list all products, sell a product, and show a list of sold products.
+// The Store class represents a store that sells products, including cars.
+// It has a list of products in stock and a list of sold products.
+type Store struct {
+	Products     []ProductInterface
+	SoldProducts []ProductInterface
+}
+
+// The StoreInterface interface defines the methods that a Store must implement.
 type StoreInterface interface {
 	AddProduct(ProductInterface)
 	ListProducts()
-	SellProduct(string)
+	SellProduct(string) error
 	ListSoldProducts()
+	SearchProduct(string) ProductInterface
 }
 
-// AddProduct The Store class should have methods to add a product, list all products, sell a product, and show a list of sold products.
+// AddProduct is a method of the Store class that adds a product to the store's list of products in stock.
 func (s *Store) AddProduct(p ProductInterface) {
-	s.Product = append(s.Product, p)
+	s.Products = append(s.Products, p)
 }
 
-// ListProducts The Store class should have methods to add a product, list all products, sell a product, and show a list of sold products.
+// ListProducts is a method of the Store class that lists all  the products in the store's list of products in stock.
 func (s *Store) ListProducts() {
-	for _, p := range s.Product {
+	for _, p := range s.Products {
 		p.DisplayProduct()
+		p.DisplayStatus()
+		fmt.Println()
 	}
 }
 
-// SellProduct The Store class should have methods to add a product, list all products, sell a product, and show a list of sold products.
-func (s *Store) SellProduct(name string) {
-	//	Loop through the products in the store
-	for i, p := range s.Product {
-		//		If the product is found, then remove it from the store and add it to the sold products slice
-		if p.(Car).Name == name {
-			s.soldProduct = append(s.soldProduct, p)
-			s.Product = append(s.Product[:i], s.Product[i+1:]...)
+// SellProduct is a method of the Store class that sells a product from the store's list of products in stock and adds it to the store's list of sold products.
+func (s *Store) SellProduct(name string) error {
+
+	// Search for the product in the store's list of products in stock.
+	product := s.SearchProduct(name)
+	if product == nil {
+		return fmt.Errorf("product not found")
+	}
+
+	//Asser the product is a Product type.
+	p, ok := product.(*Product)
+	if !ok {
+		return fmt.Errorf("product is not a Product type")
+	}
+	// Check if there is sufficient quantity in stock to sell the product.
+	if p.Quantity < 1 {
+		return fmt.Errorf("product is out of stock")
+	}
+
+	// Remove the product from the store's list of products in stock and add it to the store's list of sold products.
+	for i, p := range s.Products {
+
+		// Assert that the p variable is of type Product.
+		p, ok := p.(*Product)
+		if !ok {
+			return fmt.Errorf("product has wrong type")
+		}
+
+		if p.Name == name {
+			s.SoldProducts = append(s.SoldProducts, p)
+			s.Products = append(s.Products[:i], s.Products[i+1:]...)
+			break
 		}
 	}
+
+	// Update the product's quantity in stock.
+	err := product.UpdateQuantity(-1)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// ListSoldProducts The Store class should have methods to add a product, list all products, sell a product, and show a list of sold products.
+// ListSoldProducts is a method of the Store class that lists all the products in the store's list of sold products.
 func (s *Store) ListSoldProducts() {
-	for _, p := range s.soldProduct {
+	for _, p := range s.SoldProducts {
 		p.DisplayProduct()
+		fmt.Println()
 	}
+}
+
+// SearchProduct is a method of the Store class that searches for a product with a given name in the store's list of products in stock.
+// It returns the product if found, or nil if not found.
+func (s *Store) SearchProduct(name string) ProductInterface {
+	for _, p := range s.Products {
+
+		// Assert that the p variable is of type Product.
+		p, ok := p.(*Product)
+		if !ok {
+			return nil
+		}
+		if p.Name == name {
+			return p
+		}
+	}
+	return nil
 }
 
 func main() {
-	//Create a store
-	store := Store{}
+	// Create a new store.
+	store := &Store{}
 
-	//Create a product
-	car := Car{Product{Name: "Toyota", Quantity: 10, Price: 100000}}
+	// Add some cars to the store.
+	store.AddProduct(&Car{Make: "Toyota", Model: "Camry", Year: 2020, Product: Product{Name: "Toyota Camry", Quantity: 3, Price: 30000}})
+	store.AddProduct(&Car{Make: "Honda", Model: "Accord", Year: 2021, Product: Product{Name: "Honda Accord", Quantity: 5, Price: 35000}})
+	store.AddProduct(&Car{Make: "Ford", Model: "Mustang", Year: 2019, Product: Product{Name: "Ford Mustang", Quantity: 2, Price: 40000}})
 
-	//Add the product to the store
-	store.AddProduct(car)
-
-	//Sell the product
-	store.SellProduct("Toyota")
-
-	//List all products in the store
+	// List the products in the store.
+	fmt.Println("Products in stock:")
 	store.ListProducts()
+	fmt.Println()
 
-	//List all sold products
+	// Sell a car from the store.
+	err := store.SellProduct("Toyota Camry")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// List the products in the store again.
+	fmt.Println("\nProducts in stock:")
+	store.ListProducts()
+	fmt.Println()
+
+	// List the sold products.
+	fmt.Println("\nSold products:")
 	store.ListSoldProducts()
 }
